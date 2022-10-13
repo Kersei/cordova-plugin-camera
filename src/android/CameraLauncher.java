@@ -124,6 +124,18 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
     private boolean orientationCorrected;   // Has the picture's orientation been corrected
     private boolean allowEdit;              // Should we allow the user to crop the image.
 
+    protected static String[] permissions;
+    protected static String[] storagePermissions;
+    static {
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions = new String[]{ Manifest.permission.CAMERA, Manifest.permission.READ_MEDIA_IMAGES };
+            storagePermissions = new String[]{ Manifest.permission.READ_MEDIA_IMAGES };
+        } else {
+            permissions = new String[]{ Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE };
+            storagePermissions = new String[]{ Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE };
+        }
+    }
+
     public CallbackContext callbackContext;
     private int numPics;
 
@@ -193,9 +205,8 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                 }
                 else if ((this.srcType == PHOTOLIBRARY) || (this.srcType == SAVEDPHOTOALBUM)) {
                     // FIXME: Stop always requesting the permission
-                    String[] permissions = getPermissions(true, mediaType);
-                    if(!hasPermissions(permissions)) {
-                        PermissionHelper.requestPermissions(this, SAVE_TO_ALBUM_SEC, permissions);
+                    if(!hasPermissions(storagePermissions)) {
+                        PermissionHelper.requestPermissions(this, SAVE_TO_ALBUM_SEC, storagePermissions);
                     } else {
                         this.getImage(this.srcType, destType);
                     }
@@ -275,12 +286,11 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
      * @param encodingType           Compression quality hint (0-100: 0=low quality & high compression, 100=compress of max quality)
      */
     public void callTakePicture(int returnType, int encodingType) {
-        String[] storagePermissions = getPermissions(true, mediaType);
         boolean saveAlbumPermission;
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            saveAlbumPermission = this.saveToPhotoAlbum ? hasPermissions(storagePermissions) : true;
-        } else {
+        if (this.saveToPhotoAlbum) {
             saveAlbumPermission = hasPermissions(storagePermissions);
+        } else {
+            saveAlbumPermission = true;
         }
         boolean takePicturePermission = PermissionHelper.hasPermission(this, Manifest.permission.CAMERA);
 
