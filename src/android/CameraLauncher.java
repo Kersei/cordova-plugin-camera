@@ -124,18 +124,6 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
     private boolean orientationCorrected;   // Has the picture's orientation been corrected
     private boolean allowEdit;              // Should we allow the user to crop the image.
 
-    protected static String[] permissions;
-    protected static String[] storagePermissions;
-    static {
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions = new String[]{ Manifest.permission.CAMERA, Manifest.permission.READ_MEDIA_IMAGES };
-            storagePermissions = new String[]{ Manifest.permission.READ_MEDIA_IMAGES };
-        } else {
-            permissions = new String[]{ Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE };
-            storagePermissions = new String[]{ Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE };
-        }
-    }
-
     public CallbackContext callbackContext;
     private int numPics;
 
@@ -205,8 +193,9 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                 }
                 else if ((this.srcType == PHOTOLIBRARY) || (this.srcType == SAVEDPHOTOALBUM)) {
                     // FIXME: Stop always requesting the permission
-                    if(!hasPermissions(storagePermissions)) {
-                        PermissionHelper.requestPermissions(this, SAVE_TO_ALBUM_SEC, storagePermissions);
+                    String[] permissions = getPermissions(true, mediaType);
+                    if(!hasPermissions(permissions)) {
+                        PermissionHelper.requestPermissions(this, SAVE_TO_ALBUM_SEC, permissions);
                     } else {
                         this.getImage(this.srcType, destType);
                     }
@@ -234,34 +223,34 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
     //--------------------------------------------------------------------------
 
     private String[] getPermissions(boolean storageOnly, int mediaType) {
-        ArrayList<String> permissions = new ArrayList<>();
-
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android API 33 and higher
-            switch (mediaType) {
-                case PICTURE:
-                    permissions.add(Manifest.permission.READ_MEDIA_IMAGES);
-                    break;
-                case VIDEO:
-                    permissions.add(Manifest.permission.READ_MEDIA_VIDEO);
-                    break;
-                default:
-                    permissions.add(Manifest.permission.READ_MEDIA_IMAGES);
-                    permissions.add(Manifest.permission.READ_MEDIA_VIDEO);
-                    break;
+            if (storageOnly) {
+                switch (mediaType) {
+                    case PICTURE:
+                        return new String[]{ Manifest.permission.READ_MEDIA_IMAGES };
+                    case VIDEO:
+                        return new String[]{ Manifest.permission.READ_MEDIA_VIDEO };
+                    default:
+                        return new String[]{ Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO };
+                }
+            }
+            else {
+                switch (mediaType) {
+                    case PICTURE:
+                        return new String[]{ Manifest.permission.CAMERA, Manifest.permission.CAMERA, Manifest.permission.READ_MEDIA_IMAGES };
+                    case VIDEO:
+                        return new String[]{ Manifest.permission.CAMERA, Manifest.permission.READ_MEDIA_VIDEO };
+                    default:
+                        return new String[]{ Manifest.permission.CAMERA, Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO };
+                }
             }
         } else {
-            // Android API 32 or lower
-            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE);
-            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            if (storageOnly) {
+                return new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE};
+            } else {
+                return new String[]{Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE};
+            }
         }
-
-        if (!storageOnly) {
-            // Add camera permission when not storage.
-            permissions.add(Manifest.permission.CAMERA);
-        }
-
-        return permissions.toArray(new String[0]);
     }
 
     private String getTempDirectoryPath() {
@@ -286,6 +275,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
      * @param encodingType           Compression quality hint (0-100: 0=low quality & high compression, 100=compress of max quality)
      */
     public void callTakePicture(int returnType, int encodingType) {
+        String[] storagePermissions = getPermissions(true, mediaType);
         boolean storagePermission = hasPermissions(storagePermissions);
         boolean takePicturePermission = PermissionHelper.hasPermission(this, Manifest.permission.CAMERA);
 
